@@ -85,10 +85,10 @@ class TestLoginView:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-class TestMeView:
+class TestUserView:
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.url = reverse("auth-me")
+        self.url = reverse("auth-details")
 
     def test_me_requires_authentication(self, api_client):
         response = api_client.get(self.url)

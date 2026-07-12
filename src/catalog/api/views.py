@@ -7,6 +7,7 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from catalog.choices import Trend
 from catalog.models import Product, ProductDailyStat, PriceRecord
@@ -31,6 +32,16 @@ class ProductListView(CurrencyParamMixin, ListAPIView):
     serializer_class = ProductListItemSerializer
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Список товарів",
+        description="Назва, діапазон цін на сьогодні, тренд ціни порівняно "
+                    "із середньою за попередні 30 днів.",
+        parameters=[
+            OpenApiParameter(name="currency", type=str, description="Код валюти, напр. UAH, USD"),
+            OpenApiParameter(name="sort", type=str, description="price або trend"),
+            OpenApiParameter(name="order", type=str, description="asc або desc"),
+        ],
+    )
     def get(self, request, *args, **kwargs):
         currency = self.get_currency()
         today = timezone.localdate()
@@ -66,7 +77,22 @@ class ProductListView(CurrencyParamMixin, ListAPIView):
 
 class ProductDetailView(CurrencyParamMixin, RetrieveAPIView):
     permission_classes = [AllowAny]
+    serializer_class = ProductDetailSerializer
 
+    @extend_schema(
+        summary="Картка товару",
+        description="Назва, опис товару, діапазон цін (від/до) на сьогодні у вказаній валюті.",
+        parameters=[
+            OpenApiParameter(
+                name="currency",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Код валюти, напр. UAH, USD. За замовчуванням — UAH.",
+            ),
+        ],
+        responses=ProductDetailSerializer,
+    )
     def get(self, request, pk, *args, **kwargs):
         product = get_object_or_404(Product, pk=pk)
         currency = self.get_currency()
@@ -90,6 +116,20 @@ class ProductOffersView(CurrencyParamMixin, APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Всі ціни на товар",
+        description="Список пар магазин/ціна на сьогодні у вказаній валюті.",
+        parameters=[
+            OpenApiParameter(
+                name="currency",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Код валюти, напр. UAH, USD. За замовчуванням — UAH.",
+            ),
+        ],
+        responses=StoreOfferSerializer(many=True),
+    )
     def get(self, request, pk, *args, **kwargs):
         currency = self.get_currency()
         today = timezone.localdate()
@@ -118,6 +158,27 @@ class ProductPriceHistoryView(CurrencyParamMixin, APIView):
     permission_classes = [AllowAny]
     DEFAULT_DAYS = 30
 
+    @extend_schema(
+        summary="Історія цін товару",
+        description="Дані для графіка: динаміка цін по магазинах та середньої ціни, згруповані по днях.",
+        parameters=[
+            OpenApiParameter(
+                name="currency",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Код валюти, напр. UAH, USD. За замовчуванням — UAH.",
+            ),
+            OpenApiParameter(
+                name="days",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Кількість днів історії. За замовчуванням — 30.",
+            ),
+        ],
+        responses=PriceHistoryPointSerializer(many=True),
+    )
     def get(self, request, pk, *args, **kwargs):
         currency = self.get_currency()
         days = int(request.query_params.get("days", self.DEFAULT_DAYS))
